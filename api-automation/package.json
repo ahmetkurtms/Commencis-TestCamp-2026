@@ -1,0 +1,16 @@
+{
+  "name": "contact-list-api-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "REST API tests (Playwright request API + TypeScript)",
+  "scripts": {
+    "test": "playwright test",
+    "mock": "node ./mock-server.cjs",
+    "report": "playwright show-report test-results/playwright-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.3"
+  }
+}
