@@ -18,15 +18,15 @@ Postman dokümantasyonu: [Contact List](https://documenter.getpostman.com/view/4
 
 Akış:
 
-1. Kullanıcı listesini al  
-2. Kullanıcı ekle  
-3. GET ile eklenen bilgileri doğrula  
-4. `firstName` / `lastName` için rastgele stringlerle güncelle  
-5. GET ile son hali doğrula  
-6. Sil  
-7. GET ile kullanıcının silindiğini doğrula (ör. 404)
+1. `POST /users` ile kayıt (benzersiz e-posta); yanıtta `token` ve `user`.  
+2. `GET /contacts` (Bearer) — boş dizi veya liste.  
+3. `GET /users/me` ile profil doğrula.  
+4. `PATCH /users/me` ile rastgele `firstName` / `lastName` ve yeni e-posta (şifre aynı).  
+5. `GET /users/me` ile güncellemeyi doğrula.  
+6. `DELETE /users/me`.  
+7. `GET /users/me` → **401** (token artık geçersiz).
 
-**Araç:** Playwright `request` + TypeScript. Yerel **mock** (`mock-server.cjs`) testle birlikte açılır. Harici URL: `API_BASE_URL` (ayrıntı `api-automation/NOTLAR.md`).
+**Araç:** Playwright `request` + TypeScript. **Varsayılan hedef:** `https://thinking-tester-contact-list.herokuapp.com` (internet gerekir). İnternetsiz / izole çalıştırmak için `USE_LOCAL_MOCK=1` veya `npm run test:local` — Playwright `mock-server.cjs`’i açar. Başka host için `API_BASE_URL` (Thinking Tester’da yol öneki yok; sonda `/` kullanma). Ayrıntı: `api-automation/NOTLAR.md`.
 
 ## Nasıl çalıştırılır?
 
@@ -39,11 +39,14 @@ npm test
 ```
 
 ```bash
-# API testleri
+# API testleri (canlı Heroku API)
 cd api-automation
 npm install
 npx playwright install
 npm test
+
+# Yerel mock (USE_LOCAL_MOCK=1)
+npm run test:local
 ```
 
 Raporları açmak:
