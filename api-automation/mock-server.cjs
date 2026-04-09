@@ -1,13 +1,10 @@
-// local mock: /api/users and /api/users/:id
+// Local mock for Thinking Tester Contact List API shape (USE_LOCAL_MOCK=1).
 const http = require('http');
+const crypto = require('crypto');
 const { URL } = require('url');
 
-let nextId = 100;
-const users = new Map([
-  [1, { id: 1, firstName: 'Leanne', lastName: 'Graham', email: 'leanne@test.dev' }],
-  [2, { id: 2, firstName: 'Ervin', lastName: 'Howell', email: 'ervin@test.dev' }],
-]);
-nextId = 3;
+/** @type {Map<string, { _id: string, firstName: string, lastName: string, email: string, password: string }>} */
+const sessions = new Map();
 
 function parseBody(req) {
   return new Promise((resolve, reject) => {
@@ -26,80 +23,90 @@ function parseBody(req) {
   });
 }
 
+function bearerToken(req) {
+  const h = req.headers.authorization || '';
+  const m = /^Bearer\s+(.+)$/i.exec(h);
+  return m ? m[1].trim() : null;
+}
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url || '/', 'http://127.0.0.1');
   const pathname = u.pathname.replace(/\/$/, '') || '/';
 
   res.setHeader('Content-Type', 'application/json');
 
-  const isList = pathname === '/api/users';
-  const oneMatch = pathname.match(/^\/api\/users\/(\d+)$/);
-  const id = oneMatch ? parseInt(oneMatch[1], 10) : null;
-
   try {
-    if (req.method === 'GET' && isList) {
-      const data = Array.from(users.values());
+    if (req.method === 'GET' && pathname === '/') {
       res.writeHead(200);
-      res.end(JSON.stringify({ page: 1, per_page: data.length, total: data.length, data }));
+      res.end(JSON.stringify({ ok: true }));
       return;
     }
 
-    if (req.method === 'POST' && isList) {
+    if (req.method === 'POST' && pathname === '/users') {
       const body = await parseBody(req);
-      const nid = nextId++;
+      const _id = crypto.randomBytes(12).toString('hex');
+      const token = crypto.randomBytes(24).toString('hex');
       const user = {
-        id: nid,
-        firstName: body.firstName ?? body.firstname ?? body.first_name ?? '',
-        lastName: body.lastName ?? body.lastname ?? body.last_name ?? '',
-        email: body.email ?? `user${nid}@test.dev`,
+        _id,
+        firstName: body.firstName ?? '',
+        lastName: body.lastName ?? '',
+        email: body.email ?? '',
       };
-      users.set(nid, user);
+      sessions.set(token, {
+        ...user,
+        password: body.password ?? '',
+      });
       res.writeHead(201);
-      res.end(JSON.stringify(user));
+      res.end(JSON.stringify({ user, token }));
       return;
     }
 
-    if (req.method === 'GET' && id != null) {
-      const user = users.get(id);
-      if (!user) {
-        res.writeHead(404);
-        res.end(JSON.stringify({}));
+    const token = bearerToken(req);
+    const session = token ? sessions.get(token) : null;
+
+    if (req.method === 'GET' && pathname === '/contacts') {
+      if (!session) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
         return;
       }
       res.writeHead(200);
-      res.end(JSON.stringify({ data: user }));
+      res.end(JSON.stringify([]));
       return;
     }
 
-    if (req.method === 'PUT' && id != null) {
-      const body = await parseBody(req);
-      const user = users.get(id);
-      if (!user) {
-        res.writeHead(404);
-        res.end(JSON.stringify({}));
+    if (pathname === '/users/me') {
+      if (!session) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
         return;
       }
-      const pickFirst =
-        body.firstName ?? body.firstname ?? body.first_name;
-      const pickLast = body.lastName ?? body.lastname ?? body.last_name;
-      if (pickFirst !== undefined) user.firstName = pickFirst;
-      if (pickLast !== undefined) user.lastName = pickLast;
-      if (body.email !== undefined) user.email = body.email;
-      res.writeHead(200);
-      res.end(JSON.stringify(user));
-      return;
-    }
 
-    if (req.method === 'DELETE' && id != null) {
-      if (!users.has(id)) {
-        res.writeHead(404);
-        res.end(JSON.stringify({}));
+      if (req.method === 'GET') {
+        const { password: _p, ...pub } = session;
+        res.writeHead(200);
+        res.end(JSON.stringify(pub));
         return;
       }
-      users.delete(id);
-      res.writeHead(204);
-      res.end();
-      return;
+
+      if (req.method === 'PATCH') {
+        const body = await parseBody(req);
+        if (body.firstName !== undefined) session.firstName = body.firstName;
+        if (body.lastName !== undefined) session.lastName = body.lastName;
+        if (body.email !== undefined) session.email = body.email;
+        if (body.password !== undefined) session.password = body.password;
+        const { password: _p, ...pub } = session;
+        res.writeHead(200);
+        res.end(JSON.stringify(pub));
+        return;
+      }
+
+      if (req.method === 'DELETE') {
+        sessions.delete(token);
+        res.writeHead(200);
+        res.end(JSON.stringify({ message: 'User deleted' }));
+        return;
+      }
     }
 
     res.writeHead(404);
@@ -111,5 +118,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(9999, '127.0.0.1', () => {
-  process.stdout.write('mock user API listening on http://127.0.0.1:9999\n');
+  process.stdout.write('mock Contact List API on http://127.0.0.1:9999\n');
 });

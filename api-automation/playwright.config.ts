@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const useMock = !process.env.API_BASE_URL;
+const useLocalMock = process.env.USE_LOCAL_MOCK === '1';
+const heroku = 'https://thinking-tester-contact-list.herokuapp.com';
 
 export default defineConfig({
   testDir: './tests',
@@ -13,14 +14,14 @@ export default defineConfig({
     ['list'],
   ],
   use: {
-    baseURL: process.env.API_BASE_URL ?? 'http://127.0.0.1:9999/api/',
+    baseURL: useLocalMock ? 'http://127.0.0.1:9999' : process.env.API_BASE_URL || heroku,
     extraHTTPHeaders: { Accept: 'application/json' },
   },
-  ...(useMock
+  ...(useLocalMock
     ? {
         webServer: {
           command: 'node ./mock-server.cjs',
-          url: 'http://127.0.0.1:9999/api/users',
+          url: 'http://127.0.0.1:9999/',
           reuseExistingServer: !process.env.CI,
           timeout: 20_000,
         },

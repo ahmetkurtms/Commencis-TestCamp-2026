@@ -1,72 +1,77 @@
 import { expect, test } from '@playwright/test';
 
-function randomToken(len = 10) {
-  return Math.random().toString(36).slice(2, 2 + len);
+function rnd(n = 8) {
+  return Math.random().toString(36).slice(2, 2 + n);
 }
 
 test.describe('users api', () => {
-  test('crud flow', async ({ request }) => {
-    const listRes = await request.get('users');
-    expect(listRes.ok()).toBeTruthy();
-    const listJson = (await listRes.json()) as {
-      data: Array<{ id: number; firstName: string; lastName: string; email: string }>;
-    };
-    expect(Array.isArray(listJson.data)).toBeTruthy();
-    expect(listJson.data.length).toBeGreaterThan(0);
+  test('contact list: register, list, profile, patch, delete', async ({ request }) => {
+    const password = 'Secret123!';
+    const email = `tc_${Date.now()}_${rnd(6)}@fake.com`;
 
-    const email = `auto_${randomToken()}@test.dev`;
-    const createRes = await request.post('users', {
+    const reg = await request.post('/users', {
       data: {
-        firstName: 'Added',
-        lastName: 'ByTest',
+        firstName: 'Test',
+        lastName: 'Camp',
         email,
+        password,
       },
     });
-    expect(createRes.status()).toBe(201);
-    const created = (await createRes.json()) as {
-      id: number;
-      firstName: string;
-      lastName: string;
-      email: string;
+    expect(reg.status()).toBe(201);
+    const regBody = (await reg.json()) as {
+      token: string;
+      user: { firstName: string; lastName: string; email: string; _id: string };
     };
-    expect(created.id).toBeGreaterThan(0);
-    expect(created.firstName).toBe('Added');
-    expect(created.lastName).toBe('ByTest');
-    expect(created.email).toBe(email);
+    expect(regBody.token).toBeTruthy();
+    expect(regBody.user.email).toBe(email);
+    expect(regBody.user.firstName).toBe('Test');
+    expect(regBody.user.lastName).toBe('Camp');
 
-    const id = created.id;
+    const token = regBody.token;
+    const auth = { Authorization: `Bearer ${token}` };
 
-    const getAfterCreate = await request.get(`users/${id}`);
-    expect(getAfterCreate.ok()).toBeTruthy();
-    const bodyAfterCreate = (await getAfterCreate.json()) as {
-      data: { firstName: string; lastName: string; email: string };
-    };
-    expect(bodyAfterCreate.data.firstName).toBe('Added');
-    expect(bodyAfterCreate.data.lastName).toBe('ByTest');
-    expect(bodyAfterCreate.data.email).toBe(email);
+    const contactsRes = await request.get('/contacts', { headers: auth });
+    expect(contactsRes.status()).toBe(200);
+    const contacts = await contactsRes.json();
+    expect(Array.isArray(contacts)).toBeTruthy();
 
-    const newFirst = `Rand_${randomToken()}`;
-    const newLast = `Str_${randomToken()}`;
-    const updateRes = await request.put(`users/${id}`, {
-      data: { firstName: newFirst, lastName: newLast },
+    const me1 = await request.get('/users/me', { headers: auth });
+    expect(me1.status()).toBe(200);
+    const u1 = (await me1.json()) as { firstName: string; lastName: string; email: string };
+    expect(u1.firstName).toBe('Test');
+    expect(u1.lastName).toBe('Camp');
+    expect(u1.email).toBe(email);
+
+    const newFirst = `Fn_${rnd(10)}`;
+    const newLast = `Ln_${rnd(10)}`;
+    const emailV2 = `test_v2_${Date.now()}@fake.com`;
+
+    const patch = await request.patch('/users/me', {
+      headers: auth,
+      data: {
+        firstName: newFirst,
+        lastName: newLast,
+        email: emailV2,
+        password,
+      },
     });
-    expect(updateRes.ok()).toBeTruthy();
-    const updated = (await updateRes.json()) as { firstName: string; lastName: string };
-    expect(updated.firstName).toBe(newFirst);
-    expect(updated.lastName).toBe(newLast);
+    expect(patch.status()).toBe(200);
+    const patched = (await patch.json()) as { firstName: string; lastName: string; email: string };
+    expect(patched.firstName).toBe(newFirst);
+    expect(patched.lastName).toBe(newLast);
+    expect(patched.email).toBe(emailV2);
 
-    const getAfterUpdate = await request.get(`users/${id}`);
-    expect(getAfterUpdate.ok()).toBeTruthy();
-    const bodyAfterUpdate = (await getAfterUpdate.json()) as {
-      data: { firstName: string; lastName: string };
-    };
-    expect(bodyAfterUpdate.data.firstName).toBe(newFirst);
-    expect(bodyAfterUpdate.data.lastName).toBe(newLast);
+    const me2 = await request.get('/users/me', { headers: auth });
+    expect(me2.status()).toBe(200);
+    const u2 = await me2.json() as { firstName: string; lastName: string; email: string };
+    expect(u2.firstName).toBe(newFirst);
+    expect(u2.lastName).toBe(newLast);
+    expect(u2.email).toBe(emailV2);
 
-    const deleteRes = await request.delete(`users/${id}`);
-    expect(deleteRes.status()).toBe(204);
+    const del = await request.delete('/users/me', { headers: auth });
+    expect(del.status()).toBe(200);
 
-    const getAfterDelete = await request.get(`users/${id}`);
-    expect(getAfterDelete.status()).toBe(404);
+    const me3 = await request.get('/users/me', { headers: auth });
+    expect(me3.status()).toBe(401);
   });
 });

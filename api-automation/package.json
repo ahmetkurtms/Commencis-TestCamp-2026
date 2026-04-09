@@ -5,6 +5,7 @@
   "description": "REST API tests (Playwright request API + TypeScript)",
   "scripts": {
     "test": "playwright test",
+    "test:local": "USE_LOCAL_MOCK=1 playwright test",
     "mock": "node ./mock-server.cjs",
     "report": "playwright show-report test-results/playwright-report"
   },
