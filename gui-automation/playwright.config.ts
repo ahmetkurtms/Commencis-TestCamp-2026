@@ -6,11 +6,15 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
+  timeout: 360_000,
+  expect: { timeout: 25_000 },
   reporter: [
     ['html', { outputFolder: 'test-results/playwright-report', open: 'never' }],
     ['list'],
   ],
   use: {
+    navigationTimeout: 45_000,
+    actionTimeout: 25_000,
     baseURL: 'https://www.commencis.com',
     // site 403 on default playwright ua
     userAgent:

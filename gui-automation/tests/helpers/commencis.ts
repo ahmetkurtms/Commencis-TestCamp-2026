@@ -13,20 +13,41 @@ export async function acceptCookiesIfPresent(page: Page): Promise<void> {
 
 export async function openBlogViaInsightsMenu(page: Page): Promise<void> {
   await page.locator('body').click({ position: { x: 4, y: 4 }, force: true }).catch(() => {});
-  const insights = page.locator('#gm-main-menu a.gm-dropdown-toggle').filter({ hasText: /^Insights$/ });
-  await insights.first().waitFor({ state: 'visible', timeout: 15_000 });
-  const blogEntry = page
-    .locator('div.tablet-hidden.mobile-hidden#menu-services a[title="Blog"]')
-    .first();
+
+  const insights = page
+    .locator('#gm-main-menu a.gm-dropdown-toggle')
+    .filter({ hasText: /\bInsights\b/i });
 
   const blogUrl = /commencis\.com\/thoughts\/?(\?.*)?$/;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await insights.first().hover();
-    await blogEntry.click({ force: true });
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const toggle = insights.first();
+    await toggle.waitFor({ state: 'visible', timeout: 20_000 });
+    await toggle.scrollIntoViewIfNeeded();
+    await toggle.hover({ timeout: 10_000 });
+
+    const mega = page.locator('#menu-services:visible').first();
+    const megaOk = await mega
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!megaOk) continue;
+
+    const byRole = mega.getByRole('link', { name: /^Blog$/i }).first();
+    const byHref = mega
+      .locator('a[href*="/thoughts/"]')
+      .filter({ hasText: /^Blog$/i })
+      .first();
+
+    const blogLink = (await byRole.isVisible().catch(() => false)) ? byRole : byHref;
+    await blogLink.click({ timeout: 12_000, force: true });
+
     try {
-      await page.waitForURL(blogUrl, { timeout: 15_000 });
+      await page.waitForURL(blogUrl, { timeout: 20_000 });
       return;
-    } catch {}
+    } catch {
+      /* mega menu sometimes needs another hover / duplicate #menu-services in DOM */
+    }
   }
   throw new Error('could not open blog from insights menu');
 }
